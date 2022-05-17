@@ -211,14 +211,15 @@ impl WhiteboxTool for ElevationAboveStreamEuclidean {
         let dem = Raster::new(&dem_file, "r")?;
         let input = Raster::new(&streams_file, "r")?;
 
-        let nodata = input.configs.nodata;
-        let rows = input.configs.rows as isize;
-        let columns = input.configs.columns as isize;
+        let nodata = dem.configs.nodata;
+        let input_nodata = input.configs.nodata;
+        let rows = dem.configs.rows as isize;
+        let columns = dem.configs.columns as isize;
         let mut r_x: Array2D<f64> = Array2D::new(rows, columns, 0f64, nodata)?;
         let mut r_y: Array2D<f64> = Array2D::new(rows, columns, 0f64, nodata)?;
         let mut distance: Array2D<f64> = Array2D::new(rows, columns, 0f64, nodata)?;
 
-        if dem.configs.rows as isize != rows || dem.configs.columns as isize != columns {
+        if input.configs.rows as isize != rows || input.configs.columns as isize != columns {
             return Err(Error::new(
                 ErrorKind::InvalidInput,
                 "Input DEM and streams file must have the same extent (rows and columns).",
@@ -242,12 +243,12 @@ impl WhiteboxTool for ElevationAboveStreamEuclidean {
         for row in 0..rows {
             for col in 0..columns {
                 z = input[(row, col)];
-                if z != 0.0 {
+                if z != 0.0 && z != input_nodata {
                     distance.set_value(row, col, 0.0);
                     allocation.set_value(row, col, dem.get_value(row, col));
                 } else {
                     distance.set_value(row, col, inf_val);
-                    allocation.set_value(row, col, inf_val);
+                    allocation.set_value(row, col, inf_val); // why infinite?
                 }
             }
             if verbose {
@@ -347,7 +348,7 @@ impl WhiteboxTool for ElevationAboveStreamEuclidean {
 
         for row in 0..rows {
             for col in 0..columns {
-                z = input[(row, col)];
+                z = dem.get_value(row, col); // nodata in dem should be skipped not streams.
                 if z == nodata {
                     allocation.set_value(row, col, nodata);
                 } else {
